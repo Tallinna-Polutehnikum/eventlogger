@@ -4,6 +4,9 @@ import azure.functions as func
 import mysql.connector
 import os
 
+app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
+
+@app.route(route="event", methods=["GET", "POST"])
 def main(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('EventLogger triggered.')
 
@@ -37,6 +40,10 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             extra = json.dumps(extra)  # Convert dictionary to JSON string
         else:
             extra = str(extra)  # Convert other types to string
+    if extra is None:
+        extra = ""
+
+    client_ip = req.headers.get('X-Forwarded-For', '').split(',')[0].strip()
 
     try:
         # Connect to MySQL
@@ -50,9 +57,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
         # Insert event
         cursor.execute('''
-            INSERT INTO events (user, type, extra)
-            VALUES (%s, %s, %s)
-        ''', (user, event, extra))
+            INSERT INTO events (user, type, extra, client_ip)
+            VALUES (%s, %s, %s, %s)
+        ''', (user, event, extra, client_ip))
 
         conn.commit()
         conn.close()
